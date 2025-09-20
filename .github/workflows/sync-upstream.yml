@@ -20,7 +20,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Get most recent tag (includes pre-releases like v0.4.0-beta)
           TAG="$(curl -fsSL https://api.github.com/repos/Nasogaa/immich-drop/tags | jq -r '.[0].name')"
           if [ -z "${TAG}" ] || [ "${TAG}" = "null" ]; then
             echo "Failed to resolve upstream tag" >&2
@@ -38,7 +37,6 @@ jobs:
             echo "Failed to read version from immich-drop/config.yaml" >&2
             exit 1
           fi
-          # Base version without -X suffix (if present)
           BASE="$(echo "${CUR}" | sed -E 's/-[0-9]+$//')"
           echo "cur=${CUR}"   >> "$GITHUB_OUTPUT"
           echo "base=${BASE}" >> "$GITHUB_OUTPUT"
@@ -57,18 +55,65 @@ jobs:
 
           if [ "${NEW_TAG}" != "${BASE}" ]; then
             echo "Bumping version to ${NEW_TAG} and resetting -X suffix"
-            # Update add-on version (replace entire value on the version key)
             sed -i -E "s|^(version:[[:space:]]*).*$|\1${NEW_TAG}|" immich-drop/config.yaml
             CHANGED=1
           fi
 
-          # Ensure Dockerfile pins to the same upstream ref for reproducible builds
           if ! grep -q "ARG UPSTREAM_REF=${NEW_TAG}" immich-drop/Dockerfile ; then
             sed -i -E "s|^ARG UPSTREAM_REF=.*$|ARG UPSTREAM_REF=${NEW_TAG}|" immich-drop/Dockerfile
             CHANGED=1
           fi
 
           echo "changed=${CHANGED}" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch upstream release notes for tag
+        if: steps.update.outputs.changed == '1'
+        id: rel
+        shell: bash
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          URL="https://api.github.com/repos/Nasogaa/immich-drop/releases/tags/${TAG}"
+          HTTP=$(curl -fsSL -w "%{http_code}" -o /tmp/release.json "$URL" || true)
+          if [ "${HTTP}" = "200" ]; then
+            BODY="$(jq -r '.body // ""' /tmp/release.json)"
+            PUBLISHED="$(jq -r '.published_at // ""' /tmp/release.json)"
+            HTML="$(jq -r '.html_url // ""' /tmp/release.json)"
+          else
+            # Fallback if release not found (only tag exists)
+            BODY="No upstream release notes were found for ${TAG}. See the tag for details."
+            PUBLISHED=""
+            HTML="https://github.com/Nasogaa/immich-drop/releases/tags/${TAG}"
+          fi
+
+          # Format date safely
+          if [ -n "${PUBLISHED}" ] && date -u -d "${PUBLISHED}" +"%Y-%m-%d" >/dev/null 2>&1; then
+            DATE_FMT="$(date -u -d "${PUBLISHED}" +"%Y-%m-%d")"
+          else
+            DATE_FMT="$(date -u +"%Y-%m-%d")"
+          fi
+
+          # Write a section to prepend
+          {
+            printf "## %s - %s\n\n" "${TAG}" "${DATE_FMT}"
+            printf "Upstream release: %s\n\n" "${HTML}"
+            printf "%s\n\n" "${BODY}"
+          } > /tmp/changelog_section.md
+
+          echo "section=/tmp/changelog_section.md" >> "$GITHUB_OUTPUT"
+
+      - name: Prepend CHANGELOG.md with upstream notes
+        if: steps.update.outputs.changed == '1'
+        shell: bash
+        env:
+          SECTION: ${{ steps.rel.outputs.section }}
+        run: |
+          set -euo pipefail
+          if [ -f CHANGELOG.md ]; then
+            cat CHANGELOG.md >> "${SECTION}"
+          fi
+          mv "${SECTION}" CHANGELOG.md
 
       - name: Commit and push changes
         if: steps.update.outputs.changed == '1'
@@ -77,6 +122,6 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add immich-drop/config.yaml immich-drop/Dockerfile
-          git commit -m "chore(sync): track upstream ${{ steps.tag.outputs.tag }} (pin UPSTREAM_REF)"
+          git add immich-drop/config.yaml immich-drop/Dockerfile CHANGELOG.md
+          git commit -m "chore(sync): track upstream ${{ steps.tag.outputs.tag }}; update CHANGELOG"
           git push
