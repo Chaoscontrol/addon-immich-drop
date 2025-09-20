@@ -12,7 +12,7 @@ Web uploader for Immich with invite links, optional public upload page, duplicat
 1) Add this repository to Home Assistant Add-on Store
 - Settings → Add-ons → Add-on store
 - Menu (top-right) → Repositories
-- Add repository URL: https://github.com/your-user/addon-immich-drop
+- Add repository URL: https://github.com/Chaoscontrol/addon-immich-drop
 
 2) Install
 - Open the “Immich Drop” add-on from the store and click Install.
@@ -132,5 +132,5 @@ Logs
 
 ## Maintainer
 
-- Add-on repository: https://github.com/your-user/addon-immich-drop
+- Add-on repository: https://github.com/Chaoscontrol/addon-immich-drop
 - Upstream project: https://github.com/Nasogaa/immich-drop
