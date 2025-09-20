@@ -1,0 +1,25 @@
+# Local reference sources and examples (not needed in the repo)
+immich-drop-master/
+addon-example-main/
+
+# Python/build noise (upstream project dev artifacts)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Editor/OS
+.vscode/
+.idea/
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+.env.*

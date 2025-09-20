@@ -1,0 +1,54 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Home Assistant Add-on: Immich Drop
+# Longrun service that exports add-on options via bashio and starts uvicorn
+# ==============================================================================
+
+set -euo pipefail
+
+bashio::log.info "Configuring Immich Drop service..."
+
+# Read options and export as environment variables expected by the app
+export IMMICH_BASE_URL="$(bashio::config 'immich_base_url')"
+export IMMICH_API_KEY="$(bashio::config 'immich_api_key')"
+export IMMICH_ALBUM_NAME="$(bashio::config 'immich_album_name')"
+export PUBLIC_UPLOAD_PAGE_ENABLED="$(bashio::config 'public_upload_page_enabled')"
+export PUBLIC_BASE_URL="$(bashio::config 'public_base_url')"
+export CHUNKED_UPLOADS_ENABLED="$(bashio::config 'chunked_uploads_enabled')"
+export CHUNK_SIZE_MB="$(bashio::config 'chunk_size_mb')"
+
+# Map HA log level (lowercase) to application style (uppercase)
+LOG_LEVEL_OPT="$(bashio::config 'log_level')"
+export LOG_LEVEL="$(echo "${LOG_LEVEL_OPT:-info}" | tr '[:lower:]' '[:upper:]')"
+
+# Optional session secret (if omitted, app generates one on boot)
+if bashio::config.has_value 'session_secret'; then
+  export SESSION_SECRET="$(bashio::config 'session_secret')"
+fi
+
+# App runtime env
+export HOST="0.0.0.0"
+export PORT="8080"
+export STATE_DB="/data/state.db"
+
+# Basic logging (avoid leaking token)
+MASKED_API="${IMMICH_API_KEY:0:4}********"
+bashio::log.blue "IMMICH_BASE_URL=${IMMICH_BASE_URL}"
+bashio::log.blue "IMMICH_API_KEY=${MASKED_API}"
+bashio::log.blue "IMMICH_ALBUM_NAME=${IMMICH_ALBUM_NAME}"
+bashio::log.blue "PUBLIC_UPLOAD_PAGE_ENABLED=${PUBLIC_UPLOAD_PAGE_ENABLED}"
+bashio::log.blue "PUBLIC_BASE_URL=${PUBLIC_BASE_URL}"
+bashio::log.blue "CHUNKED_UPLOADS_ENABLED=${CHUNKED_UPLOADS_ENABLED}"
+bashio::log.blue "CHUNK_SIZE_MB=${CHUNK_SIZE_MB}"
+bashio::log.blue "LOG_LEVEL=${LOG_LEVEL}"
+
+# Ensure data directories exist
+mkdir -p /data /data/chunks
+
+# Change to app directory
+cd /opt/immich_drop
+
+bashio::log.info "Starting uvicorn app.app:app on 0.0.0.0:8080"
+# No reload in add-on; single worker is fine for this use case
+exec uvicorn app.app:app --host 0.0.0.0 --port 8080

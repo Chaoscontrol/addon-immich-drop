@@ -1,0 +1,41 @@
+---
+name: Immich Drop
+version: 0.1.0
+slug: immich_drop
+description: Web uploader for Immich with invite links and optional public upload page
+url: https://github.com/your-user/addon-immich-drop
+webui: http://[HOST]:[PORT:8080]/
+ingress: false
+panel_icon: mdi:cloud-upload
+init: false
+arch:
+  - aarch64
+  - amd64
+  - armv7
+
+ports:
+  "8080/tcp": 8080
+ports_description:
+  "8080/tcp": Web UI
+
+options:
+  immich_base_url: "http://homeassistant.local:2283/api"
+  immich_api_key: ""
+  immich_album_name: ""
+  public_upload_page_enabled: false
+  public_base_url: ""
+  chunked_uploads_enabled: false
+  chunk_size_mb: 95
+  log_level: info
+  session_secret: ""
+
+schema:
+  immich_base_url: str
+  immich_api_key: password
+  immich_album_name: str?
+  public_upload_page_enabled: bool
+  public_base_url: str?
+  chunked_uploads_enabled: bool
+  chunk_size_mb: int(1,500)
+  log_level: list(trace|debug|info|notice|warning|error|fatal)
+  session_secret: password?
