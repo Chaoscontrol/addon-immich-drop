@@ -2,6 +2,9 @@ ARG BUILD_FROM=ghcr.io/hassio-addons/base:18.1.1
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
+# Pin upstream source at build time (overridden by CI when syncing)
+ARG UPSTREAM_REF=main
+
 # Copy root filesystem (s6 services, scripts)
 COPY rootfs /
 # Ensure s6 run scripts are executable
@@ -36,7 +39,7 @@ RUN apk add --no-cache \
 WORKDIR /opt
 # Install git only for build; smaller layer than editing previous apk block
 RUN apk add --no-cache git \
-    && git clone --depth 1 https://github.com/Nasogaa/immich-drop.git immich_drop
+    && git clone --depth 1 --branch "${UPSTREAM_REF}" https://github.com/Nasogaa/immich-drop.git immich_drop
 
 # Install Python dependencies (omit dev-only watchers)
 WORKDIR /opt/immich_drop

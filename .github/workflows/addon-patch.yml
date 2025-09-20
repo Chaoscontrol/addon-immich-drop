@@ -1,0 +1,66 @@
+name: addon-patch
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: Reason for add-on only patch bump (no upstream change)
+        required: false
+        default: "add-on maintenance"
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read current version
+        id: cur
+        shell: bash
+        run: |
+          set -euo pipefail
+          CUR="$(sed -n 's/^version:[[:space:]]*//p' immich-drop/config.yaml | head -n1 | tr -d '\r')"
+          if [ -z "${CUR}" ]; then
+            echo "Could not read version from immich-drop/config.yaml" >&2
+            exit 1
+          fi
+          BASE="$(echo "${CUR}" | sed -E 's/-[0-9]+$//')"
+          SUFFIX="$(echo "${CUR}" | sed -nE 's/.*-([0-9]+)$/\1/p')"
+          if [ -z "${SUFFIX}" ]; then
+            NEW="${BASE}-1"
+          else
+            NEXT=$((SUFFIX+1))
+            NEW="${BASE}-${NEXT}"
+          fi
+          echo "cur=${CUR}"   >> "$GITHUB_OUTPUT"
+          echo "base=${BASE}" >> "$GITHUB_OUTPUT"
+          echo "new=${NEW}"   >> "$GITHUB_OUTPUT"
+
+      - name: Apply new version and pin Dockerfile UPSTREAM_REF
+        shell: bash
+        env:
+          NEW: ${{ steps.cur.outputs.new }}
+          BASE: ${{ steps.cur.outputs.base }}
+        run: |
+          set -euo pipefail
+          sed -i -E "s|^(version:[[:space:]]*).*$|\1${NEW}|" immich-drop/config.yaml
+          # Keep Dockerfile pinned to base upstream ref (without -X)
+          sed -i -E "s|^ARG UPSTREAM_REF=.*$|ARG UPSTREAM_REF=${BASE}|" immich-drop/Dockerfile
+
+      - name: Commit and push
+        shell: bash
+        env:
+          REASON: ${{ github.event.inputs.reason }}
+          NEW: ${{ steps.cur.outputs.new }}
+          BASE: ${{ steps.cur.outputs.base }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add immich-drop/config.yaml immich-drop/Dockerfile
+          git commit -m "chore(addon): bump add-on patch version to ${NEW} (base ${BASE}) - ${REASON}"
+          git push
