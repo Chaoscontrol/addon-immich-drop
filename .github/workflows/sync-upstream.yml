@@ -125,3 +125,27 @@ jobs:
           git add immich-drop/config.yaml immich-drop/Dockerfile CHANGELOG.md
           git commit -m "chore(sync): track upstream ${{ steps.tag.outputs.tag }}; update CHANGELOG"
           git push
+
+      - name: Create tag for release
+        if: steps.update.outputs.changed == '1'
+        shell: bash
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "${TAG}"; then
+            echo "Tag ${TAG} already exists, skipping"
+          else
+            git tag -a "${TAG}" -m "Immich Drop add-on ${TAG}"
+            git push origin "${TAG}"
+          fi
+
+      - name: Publish GitHub Release
+        if: steps.update.outputs.changed == '1'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Immich Drop add-on ${{ steps.tag.outputs.tag }}
+          body_path: ${{ steps.rel.outputs.section }}
+          draft: false
+          prerelease: ${{ contains(steps.tag.outputs.tag, 'beta') || contains(steps.tag.outputs.tag, 'rc') }}

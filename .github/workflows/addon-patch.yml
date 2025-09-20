@@ -64,3 +64,45 @@ jobs:
           git add immich-drop/config.yaml immich-drop/Dockerfile
           git commit -m "chore(addon): bump add-on patch version to ${NEW} (base ${BASE}) - ${REASON}"
           git push
+
+      - name: Create tag for release
+        shell: bash
+        env:
+          NEW: ${{ steps.cur.outputs.new }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --tags origin "refs/tags/${NEW}" | grep -q "${NEW}"; then
+            echo "Tag ${NEW} already exists, skipping"
+          else
+            git tag -a "${NEW}" -m "Immich Drop add-on ${NEW}"
+            git push origin "${NEW}"
+          fi
+
+      - name: Compose release notes
+        id: rn
+        shell: bash
+        env:
+          NEW: ${{ steps.cur.outputs.new }}
+          BASE: ${{ steps.cur.outputs.base }}
+          REASON: ${{ github.event.inputs.reason }}
+        run: |
+          set -euo pipefail
+          {
+            echo "Add-on patch release ${NEW} (base upstream ${BASE})"
+            echo
+            if [ -n "${REASON}" ]; then
+              echo "Reason: ${REASON}"
+              echo
+            fi
+            echo "See CHANGELOG for details."
+          } > /tmp/release_notes.md
+          echo "path=/tmp/release_notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.cur.outputs.new }}
+          name: Immich Drop add-on ${{ steps.cur.outputs.new }}
+          body_path: ${{ steps.rn.outputs.path }}
+          draft: false
+          prerelease: ${{ contains(steps.cur.outputs.new, 'beta') || contains(steps.cur.outputs.new, 'rc') }}
