@@ -3,7 +3,7 @@ name: Immich Drop
 version: v0.4.0-beta-1
 slug: immich_drop
 description: Web uploader for Immich with invite links and optional public upload page
-url: https://github.com/your-user/addon-immich-drop
+url: https://github.com/Chaoscontrol/addon-immich-drop
 webui: http://[HOST]:[PORT:8080]/
 ingress: false
 panel_icon: mdi:cloud-upload
@@ -19,7 +19,7 @@ ports_description:
   "8080/tcp": Web UI
 
 options:
-  immich_base_url: "http://homeassistant.local:2283/api"
+  immich_base_url: "http://homeassistant.local:8181/api"
   immich_api_key: ""
   immich_album_name: ""
   public_upload_page_enabled: false
