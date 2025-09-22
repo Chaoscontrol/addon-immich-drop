@@ -1,3 +1,9 @@
+## v0.4.1-beta - 2025-09-22
+
+Upstream release: https://github.com/Nasogaa/immich-drop/releases/tags/v0.4.1-beta
+
+No upstream release notes were found for v0.4.1-beta. See the tag for details.
+
 # Changelog — Immich Drop Home Assistant Add-on
 
 This file is maintained automatically by CI when upstream releases are synced.

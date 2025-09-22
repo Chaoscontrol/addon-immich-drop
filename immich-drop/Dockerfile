@@ -3,7 +3,7 @@ ARG BUILD_FROM=ghcr.io/hassio-addons/base:18.1.1
 FROM ${BUILD_FROM}
 
 # Pin upstream source at build time (overridden by CI when syncing)
-ARG UPSTREAM_REF=v0.4.0-beta
+ARG UPSTREAM_REF=v0.4.1-beta
 
 # Copy root filesystem (s6 services, scripts)
 COPY rootfs /
