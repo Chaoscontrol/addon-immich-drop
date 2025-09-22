@@ -20,7 +20,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG="$(curl -fsSL https://api.github.com/repos/Nasogaa/immich-drop/tags | jq -r '.[0].name')"
+          # Avoid GitHub REST API rate limits by using a shallow tag fetch
+          WORKDIR="/tmp/immich-upstream"
+          rm -rf "${WORKDIR}"
+          git init -q "${WORKDIR}"
+          cd "${WORKDIR}"
+          git remote add origin https://github.com/Nasogaa/immich-drop.git
+          # Fetch only tags, shallow
+          git fetch --depth=1 --tags origin
+
+          # Prefer newest by creation date; fall back to version sort
+          TAG="$(git for-each-ref --sort=-creatordate --format='%(refname:short)' refs/tags | head -n1 || true)"
+          if [ -z "${TAG}" ]; then
+            TAG="$(git for-each-ref --sort=-version:refname --format='%(refname:short)' refs/tags | tail -n1 || true)"
+          fi
           if [ -z "${TAG}" ] || [ "${TAG}" = "null" ]; then
             echo "Failed to resolve upstream tag" >&2
             exit 1
