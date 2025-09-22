@@ -140,7 +140,7 @@ jobs:
           git push
 
       - name: Create tag for release
-        if: steps.update.outputs.changed == '1'
+        if: ${{ steps.update.outputs.changed == '1' && steps.tag.outputs.tag != '' && steps.tag.outputs.tag != 'null' }}
         shell: bash
         env:
           TAG: ${{ steps.tag.outputs.tag }}
@@ -154,7 +154,7 @@ jobs:
           fi
 
       - name: Publish GitHub Release
-        if: steps.update.outputs.changed == '1'
+        if: ${{ steps.update.outputs.changed == '1' && steps.tag.outputs.tag != '' && steps.tag.outputs.tag != 'null' && steps.rel.outputs.section != '' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
