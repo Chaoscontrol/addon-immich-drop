@@ -177,17 +177,26 @@ jobs:
           echo "section=${SECTION}" >> "$GITHUB_OUTPUT"
 
       # 6) Prepend CHANGELOG only when version changed (avoid duplicate entries)
-      - name: Prepend CHANGELOG.md with upstream notes
+      - name: Prepend CHANGELOG.md (root and add-on) with upstream notes
         if: ${{ steps.update.outputs.changed == '1' }}
         shell: bash
         env:
           SECTION: ${{ steps.rel.outputs.section }}
         run: |
           set -euo pipefail
+          # Root CHANGELOG
           if [ -f CHANGELOG.md ]; then
             cat CHANGELOG.md >> "${SECTION}"
           fi
           mv "${SECTION}" CHANGELOG.md
+
+          # Add-on local CHANGELOG (used by HA Add-on Store UI)
+          SECTION2="/tmp/changelog_section_addon.md"
+          cp CHANGELOG.md "${SECTION2}"
+          if [ -f immich-drop/CHANGELOG.md ]; then
+            cat immich-drop/CHANGELOG.md >> "${SECTION2}"
+          fi
+          mv "${SECTION2}" immich-drop/CHANGELOG.md
 
       # 7) Commit version bump and pin if CHANGED
       - name: Commit and push changes

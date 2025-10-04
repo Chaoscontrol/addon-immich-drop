@@ -6,7 +6,7 @@ Collect photos and videos from anyone into your Immich server using simple invit
 - This add-on’s manifest: [config.yaml](immich-drop/config.yaml:1)
 - Service launcher: [run](immich-drop/rootfs/etc/s6-overlay/s6-rc.d/immich-drop/run:1)
 - Container build: [Dockerfile](immich-drop/Dockerfile:1)
-- Changelog: [CHANGELOG.md](CHANGELOG.md:1)
+- Changelog: [CHANGELOG](immich-drop/CHANGELOG.md:1)
 
 Branding
 - The add-on includes icons used by Home Assistant Supervisor:
@@ -60,7 +60,7 @@ public_base_url: ""                      # optional, used in invite link you cop
 chunked_uploads_enabled: false           # enable for very large files
 chunk_size_mb: 95
 log_level: info
-session_secret: ""                       # optional; auto-generated if blank
+session_secret: ""                       # optional; auto-generated if blank (recommended to set a strong random value in production)
 ```
 
 Open the Web UI:
