@@ -121,15 +121,20 @@ jobs:
             TO_USE="${BASE}"
           fi
 
+          echo "DEBUG decide: NEW_TAG=${NEW_TAG} BASE=${BASE} CHANGED=${CHANGED} TO_USE=${TO_USE}"
+
           NEED_RELEASE=0
           if [ "${CHANGED}" = "1" ]; then
+            echo "DEBUG decide: version changed -> need_release=1"
             NEED_RELEASE=1
           else
-            # Check if tag exists on origin without using pipelines that can fail with pipefail
-            if git ls-remote --tags origin "refs/tags/${TO_USE}" >/dev/null 2>&1; then
-              :
+            # Determine if the tag exists on origin. ls-remote returns 0 even when no match,
+            # so we must check if output is non-empty.
+            OUT="$(git ls-remote --tags origin "refs/tags/${TO_USE}" || true)"
+            if [ -n "${OUT}" ]; then
+              echo "DEBUG decide: tag ${TO_USE} exists on origin"
             else
-              echo "Tag ${TO_USE} missing on origin; will create it and publish release."
+              echo "DEBUG decide: tag ${TO_USE} missing on origin -> need_release=1"
               NEED_RELEASE=1
             fi
           fi
