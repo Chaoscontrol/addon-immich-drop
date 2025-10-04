@@ -105,4 +105,5 @@ jobs:
           name: Immich Drop add-on ${{ steps.cur.outputs.new }}
           body_path: ${{ steps.rn.outputs.path }}
           draft: false
-          prerelease: ${{ contains(steps.cur.outputs.new, 'beta') || contains(steps.cur.outputs.new, 'rc') }}
+          prerelease: false
+          make_latest: true
