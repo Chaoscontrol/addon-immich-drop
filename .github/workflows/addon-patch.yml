@@ -102,7 +102,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.cur.outputs.new }}
-          name: Immich Drop add-on ${{ steps.cur.outputs.new }}
+          name: ${{ steps.cur.outputs.new }}
           body_path: ${{ steps.rn.outputs.path }}
           draft: false
           prerelease: false
