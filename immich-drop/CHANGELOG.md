@@ -1,3 +1,19 @@
+## v0.5.0-beta-12 - 2025-10-04
+
+Add-on patch release (base upstream v0.5.0-beta)
+
+Reason: workflow fixes
+
+Add-on patch release v0.5.0-beta-12 (base upstream v0.5.0-beta)
+
+Reason: workflow fixes
+
+Changes:
+- Home Assistant add-on maintenance update
+- workflow fixes
+
+No upstream application change; UPSTREAM_REF remains at v0.5.0-beta.
+
 ## v0.5.0-beta-11 - 2025-10-04
 
 Add-on patch release (base upstream v0.5.0-beta)
