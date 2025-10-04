@@ -5,7 +5,15 @@ on:
       - 'v*'
   release:
     types: [published]
-  workflow_dispatch: {}
+  workflow_run:
+    workflows: ["addon-patch", "sync-upstream"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Optional version tag to build (e.g., v0.5.0-beta-7); defaults to version in immich-drop/config.yaml or the tag ref
+        required: false
+        type: string
 
 jobs:
   build-and-push:
@@ -37,11 +45,25 @@ jobs:
           set -euo pipefail
           OWNER="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
           IMAGE_BASE="ghcr.io/${OWNER}/addon-immich-drop"
-          if [[ "${GITHUB_REF_TYPE}" == "tag" && -n "${GITHUB_REF_NAME}" ]]; then
+
+          # Prefer explicit input (workflow_dispatch), then tag ref, then config.yaml
+          INPUT_VER="${{ github.event.inputs.version || '' }}"
+          if [[ -n "${INPUT_VER}" ]]; then
+            VERSION="${INPUT_VER}"
+          elif [[ "${GITHUB_REF_TYPE:-}" == "tag" && -n "${GITHUB_REF_NAME:-}" ]]; then
             VERSION="${GITHUB_REF_NAME}"
           else
+            # Fallback to add-on manifest version
+            if [[ -f "immich-drop/config.yaml" ]]; then
+              VERSION="$(sed -n 's/^version:[[:space:]]*//p' immich-drop/config.yaml | head -n1 | tr -d '\r')"
+            fi
+          fi
+
+          # Final fallback
+          if [[ -z "${VERSION:-}" ]]; then
             VERSION="latest"
           fi
+
           echo "owner=${OWNER}" >> "$GITHUB_OUTPUT"
           echo "image_base=${IMAGE_BASE}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
