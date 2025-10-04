@@ -78,13 +78,40 @@ jobs:
           fi
 
           echo "changed=${CHANGED}" >> "$GITHUB_OUTPUT"
+      
+      - name: Decide release/tag action
+        id: decide
+        shell: bash
+        env:
+          NEW_TAG: ${{ steps.tag.outputs.tag }}
+          BASE: ${{ steps.current.outputs.base }}
+          CHANGED: ${{ steps.update.outputs.changed }}
+        run: |
+          set -euo pipefail
+          # If we changed files, we will release NEW_TAG.
+          # If we did not change, ensure the existing BASE tag exists; if missing, we still need to create it and publish a release.
+          TO_USE="${NEW_TAG}"
+          if [ "${CHANGED}" != "1" ]; then
+            TO_USE="${BASE}"
+          fi
+          NEED_RELEASE=0
+          if [ "${CHANGED}" = "1" ]; then
+            NEED_RELEASE=1
+          else
+            if ! git ls-remote --tags origin "refs/tags/${TO_USE}" | grep -q "${TO_USE}"; then
+              echo "Tag ${TO_USE} missing on origin; will create it and publish release."
+              NEED_RELEASE=1
+            fi
+          fi
+          echo "tag=${TO_USE}" >> "$GITHUB_OUTPUT"
+          echo "need_release=${NEED_RELEASE}" >> "$GITHUB_OUTPUT"
 
       - name: Fetch upstream release notes for tag (robust)
-        if: steps.update.outputs.changed == '1'
+        if: ${{ steps.decide.outputs.need_release == '1' }}
         id: rel
         shell: bash
         env:
-          TAG: ${{ steps.tag.outputs.tag }}
+          TAG: ${{ steps.decide.outputs.tag }}
           GH_TOKEN: ${{ github.token }}
           GH_API: ${{ github.api_url }}
         run: |
@@ -154,10 +181,10 @@ jobs:
           git push
 
       - name: Create tag for release
-        if: ${{ steps.update.outputs.changed == '1' && steps.tag.outputs.tag != '' && steps.tag.outputs.tag != 'null' }}
+        if: ${{ steps.decide.outputs.need_release == '1' }}
         shell: bash
         env:
-          TAG: ${{ steps.tag.outputs.tag }}
+          TAG: ${{ steps.decide.outputs.tag }}
         run: |
           set -euo pipefail
           if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "${TAG}"; then
@@ -168,11 +195,11 @@ jobs:
           fi
 
       - name: Publish GitHub Release
-        if: ${{ steps.update.outputs.changed == '1' && steps.tag.outputs.tag != '' && steps.tag.outputs.tag != 'null' }}
+        if: ${{ steps.decide.outputs.need_release == '1' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          name: Immich Drop add-on ${{ steps.tag.outputs.tag }}
+          tag_name: ${{ steps.decide.outputs.tag }}
+          name: Immich Drop add-on ${{ steps.decide.outputs.tag }}
           body_path: ${{ steps.rel.outputs.section }}
           draft: false
-          prerelease: ${{ contains(steps.tag.outputs.tag, 'beta') || contains(steps.tag.outputs.tag, 'rc') }}
+          prerelease: ${{ contains(steps.decide.outputs.tag, 'beta') || contains(steps.decide.outputs.tag, 'rc') }}
