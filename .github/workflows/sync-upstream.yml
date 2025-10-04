@@ -15,6 +15,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Configure git safe directory
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       # 1) Resolve the latest UPSTREAM RELEASE (not tags)
       - name: Determine latest upstream release (Nasogaa/immich-drop)
         id: relmeta
@@ -120,15 +125,19 @@ jobs:
           if [ "${CHANGED}" = "1" ]; then
             NEED_RELEASE=1
           else
-            # If repo tag is missing (e.g., manually deleted), we still need to recreate release
-            if ! git ls-remote --tags origin "refs/tags/${TO_USE}" | grep -q "${TO_USE}"; then
+            # Check if tag exists on origin without using pipelines that can fail with pipefail
+            if git ls-remote --tags origin "refs/tags/${TO_USE}" >/dev/null 2>&1; then
+              :
+            else
               echo "Tag ${TO_USE} missing on origin; will create it and publish release."
               NEED_RELEASE=1
             fi
           fi
 
-          echo "tag=${TO_USE}" >> "$GITHUB_OUTPUT"
-          echo "need_release=${NEED_RELEASE}" >> "$GITHUB_OUTPUT"
+          {
+            echo "tag=${TO_USE}"
+            echo "need_release=${NEED_RELEASE}"
+          } >> "$GITHUB_OUTPUT"
 
       # 5) Compose changelog section using upstream release metadata
       - name: Compose changelog section from upstream release metadata
@@ -197,7 +206,7 @@ jobs:
           TAG: ${{ steps.decide.outputs.tag }}
         run: |
           set -euo pipefail
-          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "${TAG}"; then
+          if git ls-remote --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
             echo "Tag ${TAG} already exists, skipping"
           else
             git tag -a "${TAG}" -m "Immich Drop add-on ${TAG}"
