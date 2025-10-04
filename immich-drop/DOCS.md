@@ -53,6 +53,7 @@ Option details
 - chunk_size_mb (optional, default 95): Per-chunk size used by the client when chunked uploads are enabled
 - log_level: trace|debug|info|notice|warning|error|fatal (mapped to the app’s LOG_LEVEL)
 - session_secret (optional): If omitted, a secure random value is generated at startup
+  - Recommendation (production): set a strong random value to keep session cookies unguessable (matches upstream release notes “Production tip: set SESSION_SECRET”).
 
 Network
 - Port 8080/tcp is exposed by default. You can change the host port mapping on the add-on info page if needed.
@@ -61,6 +62,13 @@ Persistence
 - The add-on persists its local dedupe DB at /data/state.db (managed by Supervisor automatically). Chunk assembly uses /data/chunks.
 
 ---
+
+## Upgrade notes (v0.5.0-beta alignment)
+
+- This add-on follows upstream v0.5.0-beta. Upstream marks this release “Stable · Feature & maintenance”.
+- No schema changes or database changes are required by upstream; your add-on options remain the same.
+- Breaking changes noted upstream are about Manage Links markup/classes (frontend). The add-on is unaffected, but if you use custom browser user-styles, they might need an update.
+- Security: upstream recommends setting `SESSION_SECRET`. This add-on already supports it via options. Strongly recommended for production.
 
 ## Usage
 
