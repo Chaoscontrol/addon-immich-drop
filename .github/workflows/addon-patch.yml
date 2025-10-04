@@ -104,15 +104,76 @@ jobs:
           } > /tmp/release_notes.md
           echo "path=/tmp/release_notes.md" >> "$GITHUB_OUTPUT"
 
+      - name: Update HA changelog (create if missing and prepend)
+        shell: bash
+        env:
+          NEW: ${{ steps.cur.outputs.new }}
+          BASE: ${{ steps.cur.outputs.base }}
+          REASON: ${{ github.event.inputs.reason }}
+        run: |
+          set -euo pipefail
+          mkdir -p immich-drop /tmp
+          TARGET="immich-drop/CHANGELOG.md"
+          TMP="/tmp/changelog_section.md"
+          DATE="$(date -u +%Y-%m-%d)"
+
+          {
+            echo "## ${NEW} - ${DATE}"
+            echo
+            echo "Add-on patch release (base upstream ${BASE})"
+            if [ -n "${REASON}" ]; then
+              echo
+              echo "Reason: ${REASON}"
+            fi
+            echo
+          } > "${TMP}"
+
+          if [ -f /tmp/release_notes.md ]; then
+            cat /tmp/release_notes.md >> "${TMP}"
+            echo >> "${TMP}"
+          fi
+
+          if [ -f "${TARGET}" ]; then
+            cat "${TARGET}" >> "${TMP}"
+          fi
+
+          mv "${TMP}" "${TARGET}"
+
       - name: Commit changelog
         shell: bash
         env:
           NEW: ${{ steps.cur.outputs.new }}
+          BASE: ${{ steps.cur.outputs.base }}
+          REASON: ${{ github.event.inputs.reason }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add immich-drop/CHANGELOG.md
+
+          TARGET="immich-drop/CHANGELOG.md"
+          if [ ! -f "${TARGET}" ]; then
+            # Defensive fallback to avoid pathspec error if previous step was skipped
+            mkdir -p immich-drop
+            DATE="$(date -u +%Y-%m-%d)"
+            {
+              echo "## ${NEW} - ${DATE}"
+              echo
+              echo "Add-on patch release (base upstream ${BASE})"
+              if [ -n "${REASON}" ]; then
+                echo
+                echo "Reason: ${REASON}"
+              fi
+              echo
+            } > "${TARGET}"
+          fi
+
+          # Only commit if file is new or changed
+          if [ -z "$(git status --porcelain -- ${TARGET} || true)" ]; then
+            echo "No changelog changes to commit"
+            exit 0
+          fi
+
+          git add "${TARGET}"
           git commit -m "docs(changelog): add ${NEW}"
           git push
 
