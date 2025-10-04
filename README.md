@@ -6,7 +6,7 @@ Collect photos and videos from anyone into your Immich server using simple invit
 - This add-on’s manifest: [config.yaml](immich-drop/config.yaml:1)
 - Service launcher: [run](immich-drop/rootfs/etc/s6-overlay/s6-rc.d/immich-drop/run:1)
 - Container build: [Dockerfile](immich-drop/Dockerfile:1)
-- Changelog: [CHANGELOG](immich-drop/CHANGELOG.md:1)
+- Changelog (HA Add-on): [immich-drop/CHANGELOG.md](immich-drop/CHANGELOG.md:1)
 
 Branding
 - The add-on includes icons used by Home Assistant Supervisor:

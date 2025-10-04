@@ -94,7 +94,13 @@ jobs:
               echo "Reason: ${REASON}"
               echo
             fi
-            echo "See CHANGELOG for details."
+            echo "Changes:"
+            echo "- Home Assistant add-on maintenance update"
+            if [ -n "${REASON}" ]; then
+              echo "- ${REASON}"
+            fi
+            echo
+            echo "No upstream application change; UPSTREAM_REF remains at ${BASE}."
           } > /tmp/release_notes.md
           echo "path=/tmp/release_notes.md" >> "$GITHUB_OUTPUT"
 
