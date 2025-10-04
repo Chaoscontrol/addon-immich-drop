@@ -15,31 +15,51 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Determine latest upstream tag (Nasogaa/immich-drop)
-        id: tag
+      # 1) Resolve the latest UPSTREAM RELEASE (not tags)
+      - name: Determine latest upstream release (Nasogaa/immich-drop)
+        id: relmeta
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_API: ${{ github.api_url }}
         run: |
           set -euo pipefail
-          # Avoid GitHub REST API rate limits by using a shallow tag fetch
-          WORKDIR="/tmp/immich-upstream"
-          rm -rf "${WORKDIR}"
-          git init -q "${WORKDIR}"
-          cd "${WORKDIR}"
-          git remote add origin https://github.com/Nasogaa/immich-drop.git
-          # Fetch only tags, shallow
-          git fetch --depth=1 --tags origin
+          # Fetch most recent release (includes pre-releases; excludes drafts by default)
+          URL="${GH_API:-https://api.github.com}/repos/Nasogaa/immich-drop/releases?per_page=1"
+          HTTP="$(curl -sS \
+            -H "authorization: Bearer ${GH_TOKEN}" \
+            -H "accept: application/vnd.github+json" \
+            -H "user-agent: gha-sync-upstream" \
+            -w "%{http_code}" -o /tmp/releases.json "${URL}" || echo "000")"
 
-          # Prefer newest by creation date; fall back to version sort
-          TAG="$(git for-each-ref --sort=-creatordate --format='%(refname:short)' refs/tags | head -n1 || true)"
-          if [ -z "${TAG}" ]; then
-            TAG="$(git for-each-ref --sort=-version:refname --format='%(refname:short)' refs/tags | tail -n1 || true)"
-          fi
-          if [ -z "${TAG}" ] || [ "${TAG}" = "null" ]; then
-            echo "Failed to resolve upstream tag" >&2
+          if [ "${HTTP}" != "200" ]; then
+            echo "Failed to fetch upstream releases (HTTP ${HTTP})" >&2
+            cat /tmp/releases.json || true
             exit 1
           fi
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
+          TAG="$(jq -r '.[0].tag_name // empty' /tmp/releases.json)"
+          BODY="$(jq -r '.[0].body // ""' /tmp/releases.json)"
+          PUBLISHED="$(jq -r '.[0].published_at // ""' /tmp/releases.json)"
+          HTML="$(jq -r '.[0].html_url // ""' /tmp/releases.json)"
+          PRERELEASE="$(jq -r '.[0].prerelease // false' /tmp/releases.json)"
+
+          if [ -z "${TAG}" ] || [ "${TAG}" = "null" ]; then
+            echo "No upstream releases found" >&2
+            exit 1
+          fi
+
+          {
+            echo "tag=${TAG}"
+            echo "published=${PUBLISHED}"
+            echo "html=${HTML}"
+            echo "prerelease=${PRERELEASE}"
+            echo "body<<EOF"
+            echo "${BODY}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # 2) Read current add-on base version (without -X) from manifest
       - name: Read current add-on version
         id: current
         shell: bash
@@ -54,16 +74,17 @@ jobs:
           echo "cur=${CUR}"   >> "$GITHUB_OUTPUT"
           echo "base=${BASE}" >> "$GITHUB_OUTPUT"
 
-      - name: Update files if upstream tag changed
+      # 3) Update files if upstream release tag changed
+      - name: Update files if upstream release changed
         id: update
         shell: bash
         env:
-          NEW_TAG: ${{ steps.tag.outputs.tag }}
+          NEW_TAG: ${{ steps.relmeta.outputs.tag }}
           BASE: ${{ steps.current.outputs.base }}
         run: |
           set -euo pipefail
-          echo "Upstream tag: ${NEW_TAG}"
-          echo "Current base: ${BASE}"
+          echo "Upstream release tag: ${NEW_TAG}"
+          echo "Current base version: ${BASE}"
           CHANGED=0
 
           if [ "${NEW_TAG}" != "${BASE}" ]; then
@@ -78,87 +99,72 @@ jobs:
           fi
 
           echo "changed=${CHANGED}" >> "$GITHUB_OUTPUT"
-      
+
+      # 4) Decide which tag to (re)release and whether to release at all
       - name: Decide release/tag action
         id: decide
         shell: bash
         env:
-          NEW_TAG: ${{ steps.tag.outputs.tag }}
+          NEW_TAG: ${{ steps.relmeta.outputs.tag }}
           BASE: ${{ steps.current.outputs.base }}
           CHANGED: ${{ steps.update.outputs.changed }}
         run: |
           set -euo pipefail
-          # If we changed files, we will release NEW_TAG.
-          # If we did not change, ensure the existing BASE tag exists; if missing, we still need to create it and publish a release.
+          # If CHANGED==1 we release NEW_TAG; otherwise BASE.
           TO_USE="${NEW_TAG}"
           if [ "${CHANGED}" != "1" ]; then
             TO_USE="${BASE}"
           fi
+
           NEED_RELEASE=0
           if [ "${CHANGED}" = "1" ]; then
             NEED_RELEASE=1
           else
+            # If repo tag is missing (e.g., manually deleted), we still need to recreate release
             if ! git ls-remote --tags origin "refs/tags/${TO_USE}" | grep -q "${TO_USE}"; then
               echo "Tag ${TO_USE} missing on origin; will create it and publish release."
               NEED_RELEASE=1
             fi
           fi
+
           echo "tag=${TO_USE}" >> "$GITHUB_OUTPUT"
           echo "need_release=${NEED_RELEASE}" >> "$GITHUB_OUTPUT"
 
-      - name: Fetch upstream release notes for tag (robust)
+      # 5) Compose changelog section using upstream release metadata
+      - name: Compose changelog section from upstream release metadata
         if: ${{ steps.decide.outputs.need_release == '1' }}
         id: rel
         shell: bash
         env:
           TAG: ${{ steps.decide.outputs.tag }}
-          GH_TOKEN: ${{ github.token }}
-          GH_API: ${{ github.api_url }}
+          BODY: ${{ steps.relmeta.outputs.body }}
+          PUBLISHED: ${{ steps.relmeta.outputs.published }}
+          HTML: ${{ steps.relmeta.outputs.html }}
         run: |
           set -euo pipefail
           mkdir -p /tmp
           SECTION="/tmp/changelog_section.md"
 
-          # Try authenticated GitHub API first to avoid rate limits.
-          URL="${GH_API:-https://api.github.com}/repos/Nasogaa/immich-drop/releases/tags/${TAG}"
-          HTTP="$(curl -sS -H "authorization: Bearer ${GH_TOKEN}" -H "accept: application/vnd.github+json" -H "user-agent: gha-sync-upstream" -w "%{http_code}" -o /tmp/release.json "${URL}" || echo "000")"
-
-          BODY=""
-          PUBLISHED=""
-          HTML="https://github.com/Nasogaa/immich-drop/releases/tags/${TAG}"
-
-          if [ "${HTTP}" = "200" ]; then
-            BODY="$(jq -r '.body // ""' /tmp/release.json)"
-            PUBLISHED="$(jq -r '.published_at // ""' /tmp/release.json)"
-            HTML="$(jq -r '.html_url // ""' /tmp/release.json)"
-          else
-            # Fallback to tag page without API body (still produce a file)
-            BODY="No upstream release JSON was returned (HTTP ${HTTP}). See the release page for details."
-          fi
-
-          # Format date safely
           if [ -n "${PUBLISHED}" ] && date -u -d "${PUBLISHED}" +"%Y-%m-%d" >/dev/null 2>&1; then
             DATE_FMT="$(date -u -d "${PUBLISHED}" +"%Y-%m-%d")"
           else
             DATE_FMT="$(date -u +"%Y-%m-%d")"
           fi
 
-          # Always create the section file so downstream steps never fail.
           {
             printf "## %s - %s\n\n" "${TAG}" "${DATE_FMT}"
-            printf "Upstream release: %s\n\n" "${HTML}"
+            printf "Upstream release: %s\n\n" "${HTML:-https://github.com/Nasogaa/immich-drop/releases/tag/${TAG}}"
             if [ -n "${BODY}" ]; then
               printf "%s\n\n" "${BODY}"
             else
               printf "_No body provided by upstream release._\n\n"
             fi
           } > "${SECTION}"
-
-          # Output the path for later steps
           echo "section=${SECTION}" >> "$GITHUB_OUTPUT"
 
+      # 6) Prepend CHANGELOG only when version changed (avoid duplicate entries)
       - name: Prepend CHANGELOG.md with upstream notes
-        if: steps.update.outputs.changed == '1'
+        if: ${{ steps.update.outputs.changed == '1' }}
         shell: bash
         env:
           SECTION: ${{ steps.rel.outputs.section }}
@@ -169,17 +175,21 @@ jobs:
           fi
           mv "${SECTION}" CHANGELOG.md
 
+      # 7) Commit version bump and pin if CHANGED
       - name: Commit and push changes
-        if: steps.update.outputs.changed == '1'
+        if: ${{ steps.update.outputs.changed == '1' }}
         shell: bash
+        env:
+          NEW_TAG: ${{ steps.relmeta.outputs.tag }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add immich-drop/config.yaml immich-drop/Dockerfile CHANGELOG.md
-          git commit -m "chore(sync): track upstream ${{ steps.tag.outputs.tag }}; update CHANGELOG"
+          git commit -m "chore(sync): track upstream ${NEW_TAG}; update CHANGELOG"
           git push
 
+      # 8) Create the tag if needed (covers both changed and re-tag cases)
       - name: Create tag for release
         if: ${{ steps.decide.outputs.need_release == '1' }}
         shell: bash
@@ -194,6 +204,7 @@ jobs:
             git push origin "${TAG}"
           fi
 
+      # 9) Publish release with upstream body
       - name: Publish GitHub Release
         if: ${{ steps.decide.outputs.need_release == '1' }}
         uses: softprops/action-gh-release@v2
@@ -202,4 +213,4 @@ jobs:
           name: Immich Drop add-on ${{ steps.decide.outputs.tag }}
           body_path: ${{ steps.rel.outputs.section }}
           draft: false
-          prerelease: ${{ contains(steps.decide.outputs.tag, 'beta') || contains(steps.decide.outputs.tag, 'rc') }}
+          prerelease: ${{ steps.relmeta.outputs.prerelease == 'true' }}
