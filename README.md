@@ -57,7 +57,7 @@ immich_api_key: "PASTE-YOUR-TOKEN"       # asset.upload; album.* scopes for albu
 immich_album_name: ""                    # leave blank to not auto-add to an album
 public_upload_page_enabled: false        # invite links still work without this
 public_base_url: ""                      # optional, used in invite link you copy
-chunked_uploads_enabled: false           # enable for very large files
+chunked_uploads_enabled: true            # enable for very large files by default
 chunk_size_mb: 95
 log_level: info
 session_secret: ""                       # optional; auto-generated if blank (recommended to set a strong random value in production)

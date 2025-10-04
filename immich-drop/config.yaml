@@ -24,7 +24,7 @@ options:
   immich_album_name: ""
   public_upload_page_enabled: false
   public_base_url: ""
-  chunked_uploads_enabled: false
+  chunked_uploads_enabled: true
   chunk_size_mb: 95
   log_level: info
   session_secret: ""

@@ -35,7 +35,7 @@ immich_api_key: "PASTE-YOUR-TOKEN"
 immich_album_name: ""                 # optional; default blank means no album
 public_upload_page_enabled: false     # whether / serves the public uploader; /invite/* always public-by-URL
 public_base_url: "https://drop.example.com"  # optional, for absolute invite URLs
-chunked_uploads_enabled: false
+chunked_uploads_enabled: true
 chunk_size_mb: 95
 log_level: info
 session_secret: ""                    # optional; leave blank to auto-generate
