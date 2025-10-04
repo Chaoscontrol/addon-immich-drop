@@ -174,6 +174,17 @@ jobs:
               printf "_No body provided by upstream release._\n\n"
             fi
           } > "${SECTION}"
+
+          # Append simple list of local commit subjects since previous tag -> current HEAD
+          PREV_LOCAL="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          if [ -n "${PREV_LOCAL}" ]; then
+            {
+              printf "Add-on changes since %s:\n" "${PREV_LOCAL}"
+              git log --pretty=format:'- %s' "${PREV_LOCAL}..HEAD" || true
+              echo
+            } >> "${SECTION}"
+          fi
+
           echo "section=${SECTION}" >> "$GITHUB_OUTPUT"
 
       # 6) Prepend CHANGELOG only when version changed (avoid duplicate entries)

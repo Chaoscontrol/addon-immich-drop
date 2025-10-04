@@ -2,11 +2,6 @@ name: addon-patch
 
 on:
   workflow_dispatch:
-    inputs:
-      reason:
-        description: Reason for add-on only patch bump (no upstream change)
-        required: false
-        default: "add-on maintenance"
 
 permissions:
   contents: write
@@ -90,18 +85,18 @@ jobs:
           {
             echo "Add-on patch release ${NEW} (base upstream ${BASE})"
             echo
-            if [ -n "${REASON}" ]; then
-              echo "Reason: ${REASON}"
-              echo
-            fi
-            echo "Changes:"
-            echo "- Home Assistant add-on maintenance update"
-            if [ -n "${REASON}" ]; then
-              echo "- ${REASON}"
-            fi
-            echo
-            echo "No upstream application change; UPSTREAM_REF remains at ${BASE}."
           } > /tmp/release_notes.md
+
+          # Append commit subjects since previous tag -> NEW (simple list)
+          PREV="$(git describe --tags --abbrev=0 "${NEW}^" 2>/dev/null || true)"
+          if [ -n "${PREV}" ]; then
+            {
+              echo "Changes since ${PREV}:"
+              git log --pretty=format:'- %s' "${PREV}..${NEW}" || true
+              echo
+            } >> /tmp/release_notes.md
+          fi
+
           echo "path=/tmp/release_notes.md" >> "$GITHUB_OUTPUT"
 
       - name: Update HA changelog (create if missing and prepend)
