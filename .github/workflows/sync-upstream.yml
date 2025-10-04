@@ -79,25 +79,34 @@ jobs:
 
           echo "changed=${CHANGED}" >> "$GITHUB_OUTPUT"
 
-      - name: Fetch upstream release notes for tag
+      - name: Fetch upstream release notes for tag (robust)
         if: steps.update.outputs.changed == '1'
         id: rel
         shell: bash
         env:
           TAG: ${{ steps.tag.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          GH_API: ${{ github.api_url }}
         run: |
           set -euo pipefail
-          URL="https://api.github.com/repos/Nasogaa/immich-drop/releases/tags/${TAG}"
-          HTTP=$(curl -fsSL -w "%{http_code}" -o /tmp/release.json "$URL" || true)
+          mkdir -p /tmp
+          SECTION="/tmp/changelog_section.md"
+
+          # Try authenticated GitHub API first to avoid rate limits.
+          URL="${GH_API:-https://api.github.com}/repos/Nasogaa/immich-drop/releases/tags/${TAG}"
+          HTTP="$(curl -sS -H "authorization: Bearer ${GH_TOKEN}" -H "accept: application/vnd.github+json" -H "user-agent: gha-sync-upstream" -w "%{http_code}" -o /tmp/release.json "${URL}" || echo "000")"
+
+          BODY=""
+          PUBLISHED=""
+          HTML="https://github.com/Nasogaa/immich-drop/releases/tags/${TAG}"
+
           if [ "${HTTP}" = "200" ]; then
             BODY="$(jq -r '.body // ""' /tmp/release.json)"
             PUBLISHED="$(jq -r '.published_at // ""' /tmp/release.json)"
             HTML="$(jq -r '.html_url // ""' /tmp/release.json)"
           else
-            # Fallback if release not found (only tag exists)
-            BODY="No upstream release notes were found for ${TAG}. See the tag for details."
-            PUBLISHED=""
-            HTML="https://github.com/Nasogaa/immich-drop/releases/tags/${TAG}"
+            # Fallback to tag page without API body (still produce a file)
+            BODY="No upstream release JSON was returned (HTTP ${HTTP}). See the release page for details."
           fi
 
           # Format date safely
@@ -107,14 +116,19 @@ jobs:
             DATE_FMT="$(date -u +"%Y-%m-%d")"
           fi
 
-          # Write a section to prepend
+          # Always create the section file so downstream steps never fail.
           {
             printf "## %s - %s\n\n" "${TAG}" "${DATE_FMT}"
             printf "Upstream release: %s\n\n" "${HTML}"
-            printf "%s\n\n" "${BODY}"
-          } > /tmp/changelog_section.md
+            if [ -n "${BODY}" ]; then
+              printf "%s\n\n" "${BODY}"
+            else
+              printf "_No body provided by upstream release._\n\n"
+            fi
+          } > "${SECTION}"
 
-          echo "section=/tmp/changelog_section.md" >> "$GITHUB_OUTPUT"
+          # Output the path for later steps
+          echo "section=${SECTION}" >> "$GITHUB_OUTPUT"
 
       - name: Prepend CHANGELOG.md with upstream notes
         if: steps.update.outputs.changed == '1'
@@ -154,7 +168,7 @@ jobs:
           fi
 
       - name: Publish GitHub Release
-        if: ${{ steps.update.outputs.changed == '1' && steps.tag.outputs.tag != '' && steps.tag.outputs.tag != 'null' && steps.rel.outputs.section != '' }}
+        if: ${{ steps.update.outputs.changed == '1' && steps.tag.outputs.tag != '' && steps.tag.outputs.tag != 'null' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
