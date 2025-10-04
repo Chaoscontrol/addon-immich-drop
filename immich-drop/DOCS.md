@@ -126,6 +126,10 @@ After installing and configuring:
 - Port already in use:
   - Change the host port binding in the add-on page (the container internal port remains 8080)
 
+- 409 “container name already in use” during Update:
+  - Cause: Docker/Supervisor sometimes fails to remove the old container before creating the new one, especially when the add-on is locally built from Dockerfile.
+  - Fix (UI): Stop → Rebuild → Start. If it persists, restart Supervisor and start again.
+  - Once prebuilt images are published to GHCR and the add-on uses the image: field (pull-based updates), this issue should no longer occur in normal updates.
 Logs
 - Add-on logs provide detailed info; set log_level to debug for extra detail
 
