@@ -1,3 +1,19 @@
+## v0.5.0-beta-14 - 2025-10-04
+
+Add-on patch release (base upstream v0.5.0-beta)
+
+Reason: Ingress support
+
+Add-on patch release v0.5.0-beta-14 (base upstream v0.5.0-beta)
+
+Reason: Ingress support
+
+Changes:
+- Home Assistant add-on maintenance update
+- Ingress support
+
+No upstream application change; UPSTREAM_REF remains at v0.5.0-beta.
+
 ## v0.5.0-beta-13 - 2025-10-04
 
 Add-on patch release (base upstream v0.5.0-beta)
