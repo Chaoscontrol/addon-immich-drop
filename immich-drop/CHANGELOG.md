@@ -1,3 +1,19 @@
+## v0.5.0-beta-9 - 2025-10-04
+
+Add-on patch release (base upstream v0.5.0-beta)
+
+Reason: updated the workflow to also run on tag pushes so it will trigger reliably when addon-patch/sync-upstream push a tag.
+
+Add-on patch release v0.5.0-beta-9 (base upstream v0.5.0-beta)
+
+Reason: updated the workflow to also run on tag pushes so it will trigger reliably when addon-patch/sync-upstream push a tag.
+
+Changes:
+- Home Assistant add-on maintenance update
+- updated the workflow to also run on tag pushes so it will trigger reliably when addon-patch/sync-upstream push a tag.
+
+No upstream application change; UPSTREAM_REF remains at v0.5.0-beta.
+
 ## v0.5.0-beta-8 - 2025-10-04
 
 Add-on patch release (base upstream v0.5.0-beta)
