@@ -135,6 +135,17 @@ Logs
 
 ---
 
+## Ingress support
+
+- This add-on now supports Home Assistant Ingress.
+- When opened via the Add-on sidebar or “Open Web UI” with ingress, Supervisor proxies the app under a base path (e.g., /api/hassio_ingress/...).
+- The server is started with uvicorn --proxy-headers and auto-detected --root-path to ensure correct URL generation behind the proxy.
+- Direct access on the configured port (default 8080) continues to work when you use the host:port URL.
+
+Limitations and tips
+- If you expose the add-on externally (not recommended), prefer direct port access instead of ingress URLs.
+- If any absolute links appear broken inside ingress, refresh the page or use direct access on the host:port. The app should generally work fine under the ingress base path.
+
 ## Notes
 
 - This add-on does not watch a host directory; it is a web uploader that streams files directly to Immich via its API. The /media path in Home Assistant is not used by this add-on.

@@ -49,6 +49,18 @@ mkdir -p /data /data/chunks
 # Change to app directory
 cd /opt/immich_drop
 
-bashio::log.info "Starting uvicorn app.app:app on 0.0.0.0:8080"
+# Ingress root path (when enabled by Supervisor)
+ROOT_PATH="$(bashio::addon.ingress_entry || true)"
+if [ -n "${ROOT_PATH:-}" ]; then
+  bashio::log.info "Starting uvicorn with ingress root-path: ${ROOT_PATH}"
+  exec uvicorn app.app:app \
+    --host 0.0.0.0 \
+    --port 8080 \
+    --proxy-headers \
+    --forwarded-allow-ips="*" \
+    --root-path "${ROOT_PATH}"
+fi
+
+bashio::log.info "Starting uvicorn app.app:app on 0.0.0.0:8080 (no ingress root-path)"
 # No reload in add-on; single worker is fine for this use case
-exec uvicorn app.app:app --host 0.0.0.0 --port 8080
+exec uvicorn app.app:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips="*"
