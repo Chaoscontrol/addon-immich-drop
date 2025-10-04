@@ -24,7 +24,7 @@ RUN apk add --no-cache \
         python3-dev \
         musl-dev \
         libffi-dev \
-        openssl-dev \
+        # Note: openssl-dev removed to avoid libssl/libcrypto version conflicts with base image
         # Pillow runtime + headers
         zlib-dev \
         libjpeg-turbo-dev \
