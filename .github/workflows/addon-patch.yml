@@ -59,7 +59,7 @@ jobs:
       - name: Commit and push
         shell: bash
         env:
-          REASON: ${{ github.event.inputs.reason }}
+          
           NEW: ${{ steps.cur.outputs.new }}
           BASE: ${{ steps.cur.outputs.base }}
         run: |
@@ -67,7 +67,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add immich-drop/config.yaml immich-drop/Dockerfile
-          git commit -m "chore(addon): bump add-on patch version to ${NEW} (base ${BASE}) - ${REASON}"
+          git commit -m "chore(addon): bump add-on patch version to ${NEW} (base ${BASE})"
           git push
 
       - name: Create tag for release
@@ -83,34 +83,31 @@ jobs:
             git push origin "${NEW}"
           fi
 
-      - name: Compose release notes
+      - name: Compose release notes for GitHub
         id: rn
         shell: bash
         env:
           NEW: ${{ steps.cur.outputs.new }}
           BASE: ${{ steps.cur.outputs.base }}
-          REASON: ${{ github.event.inputs.reason }}
-          GITHUB_SERVER_URL: ${{ github.server_url }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+          
         run: |
           set -euo pipefail
           {
-            echo "Add-on patch release ${NEW} (base upstream ${BASE})"
+            echo "Add-on patch release (base upstream ${BASE})"
             echo
           } > /tmp/release_notes.md
 
           format_range() {
             local range="$1"
-            # pretty output: short<TAB>full<TAB>subject
-            git log --no-color --pretty='%h	%H	%s' "${range}" \
-            | while IFS=$'\t' read -r short full subject; do
+            # pretty output: subject only (filter chore/docs)
+            git log --no-color --pretty='%s' "${range}" \
+            | while IFS= read -r subject; do
                 # Exclude chore/* and docs/* (including chore(scope): or docs(scope):)
                 first_word="${subject%% *}"
                 if printf '%s' "${first_word}" | grep -Eq '^(chore|docs)(\(|:).*'; then
                   continue
                 fi
-                # Markdown link on the short hash only
-                echo "- ${subject} ([${short}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${full}))"
+                echo "- ${subject}"
               done
           }
 
@@ -124,10 +121,18 @@ jobs:
           else
             {
               echo "Changes:"
-              # Fallback: list up to 50 commits reachable from NEW
-              # Use symmetric range from 50 commits back (if available) to NEW
+              # Fallback: list up to 50 subjects reachable from NEW
               if git rev-parse --verify "${NEW}" &>/dev/null; then
-                format_range "$(git rev-list -n 50 "${NEW}" | tail -n1)..${NEW}" || true
+                # Derive oldest commit among last 50 and build range oldest..NEW
+                oldest="$(git rev-list -n 50 "${NEW}" | tail -n1 || true)"
+                if [ -n "${oldest}" ]; then
+                  format_range "${oldest}..${NEW}" || true
+                else
+                  # As ultimate fallback, just list latest 50 subjects
+                  git log --no-color -n 50 --pretty='%s' "${NEW}" \
+                  | grep -Ev '^(chore|docs)(\(|:).*' \
+                  | sed 's/^/- /'
+                fi
               fi
               echo
             } >> /tmp/release_notes.md
@@ -135,12 +140,13 @@ jobs:
 
           echo "path=/tmp/release_notes.md" >> "$GITHUB_OUTPUT"
 
+
       - name: Update HA changelog (create if missing and prepend)
         shell: bash
         env:
           NEW: ${{ steps.cur.outputs.new }}
           BASE: ${{ steps.cur.outputs.base }}
-          REASON: ${{ github.event.inputs.reason }}
+          
         run: |
           set -euo pipefail
           mkdir -p immich-drop /tmp
@@ -150,12 +156,6 @@ jobs:
 
           {
             echo "## ${NEW} - ${DATE}"
-            echo
-            echo "Add-on patch release (base upstream ${BASE})"
-            if [ -n "${REASON}" ]; then
-              echo
-              echo "Reason: ${REASON}"
-            fi
             echo
           } > "${TMP}"
 
@@ -175,7 +175,7 @@ jobs:
         env:
           NEW: ${{ steps.cur.outputs.new }}
           BASE: ${{ steps.cur.outputs.base }}
-          REASON: ${{ github.event.inputs.reason }}
+          
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -189,13 +189,11 @@ jobs:
             {
               echo "## ${NEW} - ${DATE}"
               echo
-              echo "Add-on patch release (base upstream ${BASE})"
-              if [ -n "${REASON}" ]; then
-                echo
-                echo "Reason: ${REASON}"
-              fi
-              echo
             } > "${TARGET}"
+            if [ -f /tmp/release_notes.md ]; then
+              cat /tmp/release_notes.md >> "${TARGET}"
+              echo >> "${TARGET}"
+            fi
           fi
 
           # Only commit if file is new or changed
