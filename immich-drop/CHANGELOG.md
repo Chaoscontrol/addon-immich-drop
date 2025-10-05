@@ -1,3 +1,13 @@
+## v0.5.0-beta-21 - 2025-10-05
+
+Add-on patch release (base upstream v0.5.0-beta)
+
+Changes since v0.5.0-beta-20:
+- Changed workflow use of token
+- Merge branch 'main' of https://github.com/Chaoscontrol/addon-immich-drop
+- GH workflow updates for changelog and publishing images. Removed duplicate logo.
+
+
 ## v0.5.0-beta-20 - 2025-10-05
 
 Add-on patch release (base upstream v0.5.0-beta)
