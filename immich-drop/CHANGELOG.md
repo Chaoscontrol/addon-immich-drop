@@ -1,3 +1,13 @@
+## v0.5.0-beta-19 - 2025-10-05
+
+Add-on patch release (base upstream v0.5.0-beta)
+
+Add-on patch release v0.5.0-beta-19 (base upstream v0.5.0-beta)
+
+Changes since v0.5.0-beta-18:
+- Fix changelog ([6571359](https://github.com/Chaoscontrol/addon-immich-drop/commit/6571359889498c57dc455e118df05ae146772b4c))
+
+
 ## v0.5.0-beta-17 - 2025-10-05
 
 Add-on patch release (base upstream v0.5.0-beta)
