@@ -5,10 +5,14 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   bump:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,11 +57,21 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        env:
+          GHCR_USER: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          FALLBACK_USER: ${{ github.actor }}
+          FALLBACK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          USERNAME="${GHCR_USER:-$FALLBACK_USER}"
+          TOKEN="${GHCR_TOKEN:-$FALLBACK_TOKEN}"
+          if [ -z "${TOKEN}" ]; then
+            echo "No token available for GHCR login" >&2
+            exit 1
+          fi
+          echo "${TOKEN}" | docker login ghcr.io -u "${USERNAME}" --password-stdin
 
       - name: Compute image names
         id: meta
