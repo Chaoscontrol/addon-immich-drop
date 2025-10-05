@@ -97,21 +97,29 @@ jobs:
             echo
           } > /tmp/release_notes.md
 
-          # Append commit subjects since previous tag -> NEW (simple list)
-          # Use full history and tags (checkout set fetch-depth:0/fetch-tags:true)
           PREV="$(git describe --tags --abbrev=0 "${NEW}^" 2>/dev/null || true)"
           if [ -n "${PREV}" ]; then
             {
               echo "Changes since ${PREV}:"
-              # Include merge commits’ subjects too, but skip the tag creation noise by using the range
-              git log --no-color --pretty=format:'- %s' "${PREV}..${NEW}" || true
+              # Format: "- subject (short) url"
+              # Exclude chore/* and docs/* conventional commit types
+              git log --no-color --pretty='%h %H%x09%s' "${PREV}..${NEW}" \
+              | awk -F '\t' '!($2 ~ /^(chore|docs)(:|\\(|\\s)/)' \
+              | while IFS=$'\t' read -r hashes subject; do
+                  short="${hashes%% *}"; full="${hashes#* }"
+                  echo "- ${subject} (${short}) ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${full}"
+                done
               echo
             } >> /tmp/release_notes.md
           else
-            # First run or no prior tag; list recent commits reachable from NEW (limited)
             {
               echo "Changes:"
-              git log --no-color -n 50 --pretty=format:'- %s' "${NEW}" || true
+              git log --no-color -n 50 --pretty='%h %H%x09%s' "${NEW}" \
+              | awk -F '\t' '!($2 ~ /^(chore|docs)(:|\\(|\\s)/)' \
+              | while IFS=$'\t' read -r hashes subject; do
+                  short="${hashes%% *}"; full="${hashes#* }"
+                  echo "- ${subject} (${short}) ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${full}"
+                done
               echo
             } >> /tmp/release_notes.md
           fi
