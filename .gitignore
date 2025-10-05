@@ -23,3 +23,5 @@ Thumbs.db
 # Env files
 .env
 .env.*
+# Ignore local dev add-on (built locally on HA, not published)
+immich-drop-dev/
