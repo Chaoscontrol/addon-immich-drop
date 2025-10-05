@@ -1,3 +1,14 @@
+## v0.5.0-beta-17 - 2025-10-05
+
+Add-on patch release (base upstream v0.5.0-beta)
+
+Add-on patch release v0.5.0-beta-17 (base upstream v0.5.0-beta)
+
+Changes since v0.5.0-beta-16:
+- chore(addon): bump add-on patch version to v0.5.0-beta-17 (base v0.5.0-beta) -
+- Fix changelog
+- docs(changelog): add v0.5.0-beta-16
+
 ## v0.5.0-beta-16 - 2025-10-05
 
 Add-on patch release (base upstream v0.5.0-beta)
