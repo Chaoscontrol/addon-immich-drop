@@ -12,6 +12,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0         # get full history so git log/describe work correctly
+          fetch-tags: true       # ensure tags are available for describe/log ranges
+
+      - name: Ensure tags present (safety)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # In case the checkout action didn't fetch all tags for some reason
+          git fetch --tags --force || true
 
       - name: Read current version
         id: cur
@@ -88,11 +98,20 @@ jobs:
           } > /tmp/release_notes.md
 
           # Append commit subjects since previous tag -> NEW (simple list)
+          # Use full history and tags (checkout set fetch-depth:0/fetch-tags:true)
           PREV="$(git describe --tags --abbrev=0 "${NEW}^" 2>/dev/null || true)"
           if [ -n "${PREV}" ]; then
             {
               echo "Changes since ${PREV}:"
-              git log --pretty=format:'- %s' "${PREV}..${NEW}" || true
+              # Include merge commits’ subjects too, but skip the tag creation noise by using the range
+              git log --no-color --pretty=format:'- %s' "${PREV}..${NEW}" || true
+              echo
+            } >> /tmp/release_notes.md
+          else
+            # First run or no prior tag; list recent commits reachable from NEW (limited)
+            {
+              echo "Changes:"
+              git log --no-color -n 50 --pretty=format:'- %s' "${NEW}" || true
               echo
             } >> /tmp/release_notes.md
           fi
