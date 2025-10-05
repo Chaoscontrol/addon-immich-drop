@@ -1,3 +1,11 @@
+## v0.5.0-beta-20 - 2025-10-05
+
+Add-on patch release (base upstream v0.5.0-beta)
+
+Changes since v0.5.0-beta-19:
+- Fix changelog once more
+
+
 ## v0.5.0-beta-19 - 2025-10-05
 
 Add-on patch release (base upstream v0.5.0-beta)
