@@ -45,6 +45,94 @@ jobs:
           echo "base=${BASE}" >> "$GITHUB_OUTPUT"
           echo "new=${NEW}"   >> "$GITHUB_OUTPUT"
 
+      # Build and publish images BEFORE bump/tag/release to avoid HA pulling a non-existent tag
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image names
+        id: meta
+        shell: bash
+        env:
+          NEW: ${{ steps.cur.outputs.new }}
+        run: |
+          set -euo pipefail
+          OWNER="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          IMAGE_BASE="ghcr.io/${OWNER}/addon-immich-drop"
+          echo "owner=${OWNER}" >> "$GITHUB_OUTPUT"
+          echo "image_base=${IMAGE_BASE}" >> "$GITHUB_OUTPUT"
+          echo "version=${NEW}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push amd64
+        uses: docker/build-push-action@v5
+        with:
+          context: ./immich-drop
+          file: ./immich-drop/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image_base }}-amd64:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.image_base }}-amd64:latest
+
+      - name: Build and push aarch64 (arm64)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./immich-drop
+          file: ./immich-drop/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image_base }}-aarch64:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.image_base }}-aarch64:latest
+
+      - name: Build and push armv7
+        uses: docker/build-push-action@v5
+        with:
+          context: ./immich-drop
+          file: ./immich-drop/Dockerfile
+          platforms: linux/arm/v7
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image_base }}-armv7:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.image_base }}-armv7:latest
+
+      - name: Create multi-arch manifest (version tag)
+        shell: bash
+        env:
+          IMAGE_BASE: ${{ steps.meta.outputs.image_base }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create \
+            -t "${IMAGE_BASE}:${VERSION}" \
+            "${IMAGE_BASE}-amd64:${VERSION}" \
+            "${IMAGE_BASE}-aarch64:${VERSION}" \
+            "${IMAGE_BASE}-armv7:${VERSION}"
+
+      - name: Create multi-arch manifest (latest)
+        shell: bash
+        env:
+          IMAGE_BASE: ${{ steps.meta.outputs.image_base }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "${VERSION}" != "latest" ]; then
+            docker buildx imagetools create \
+              -t "${IMAGE_BASE}:latest" \
+              "${IMAGE_BASE}-amd64:latest" \
+              "${IMAGE_BASE}-aarch64:latest" \
+              "${IMAGE_BASE}-armv7:latest"
+          fi
+
       - name: Apply new version and pin Dockerfile UPSTREAM_REF
         shell: bash
         env:

@@ -1,17 +1,9 @@
 name: publish-image
 on:
-  push:
-    tags:
-      - 'v*'
-  release:
-    types: [published]
-  workflow_run:
-    workflows: ["addon-patch", "sync-upstream"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       version:
-        description: Optional version tag to build (e.g., v0.5.0-beta-7); defaults to version in immich-drop/config.yaml or the tag ref
+        description: Optional version tag to build (e.g., v0.5.0-beta-7); defaults to version in immich-drop/config.yaml
         required: false
         type: string
 
