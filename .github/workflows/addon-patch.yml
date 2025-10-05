@@ -90,6 +90,8 @@ jobs:
           NEW: ${{ steps.cur.outputs.new }}
           BASE: ${{ steps.cur.outputs.base }}
           REASON: ${{ github.event.inputs.reason }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           {
@@ -97,29 +99,36 @@ jobs:
             echo
           } > /tmp/release_notes.md
 
+          format_range() {
+            local range="$1"
+            # pretty output: short<TAB>full<TAB>subject
+            git log --no-color --pretty='%h	%H	%s' "${range}" \
+            | while IFS=$'\t' read -r short full subject; do
+                # Exclude chore/* and docs/* (including chore(scope): or docs(scope):)
+                first_word="${subject%% *}"
+                if printf '%s' "${first_word}" | grep -Eq '^(chore|docs)(\(|:).*'; then
+                  continue
+                fi
+                # Markdown link on the short hash only
+                echo "- ${subject} ([${short}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${full}))"
+              done
+          }
+
           PREV="$(git describe --tags --abbrev=0 "${NEW}^" 2>/dev/null || true)"
           if [ -n "${PREV}" ]; then
             {
               echo "Changes since ${PREV}:"
-              # Format: "- subject (short) url"
-              # Exclude chore/* and docs/* conventional commit types
-              git log --no-color --pretty='%h %H%x09%s' "${PREV}..${NEW}" \
-              | awk -F '\t' '!($2 ~ /^(chore|docs)(:|\\(|\\s)/)' \
-              | while IFS=$'\t' read -r hashes subject; do
-                  short="${hashes%% *}"; full="${hashes#* }"
-                  echo "- ${subject} (${short}) ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${full}"
-                done
+              format_range "${PREV}..${NEW}"
               echo
             } >> /tmp/release_notes.md
           else
             {
               echo "Changes:"
-              git log --no-color -n 50 --pretty='%h %H%x09%s' "${NEW}" \
-              | awk -F '\t' '!($2 ~ /^(chore|docs)(:|\\(|\\s)/)' \
-              | while IFS=$'\t' read -r hashes subject; do
-                  short="${hashes%% *}"; full="${hashes#* }"
-                  echo "- ${subject} (${short}) ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${full}"
-                done
+              # Fallback: list up to 50 commits reachable from NEW
+              # Use symmetric range from 50 commits back (if available) to NEW
+              if git rev-parse --verify "${NEW}" &>/dev/null; then
+                format_range "$(git rev-list -n 50 "${NEW}" | tail -n1)..${NEW}" || true
+              fi
               echo
             } >> /tmp/release_notes.md
           fi
